@@ -14,12 +14,12 @@ long lastPosition = 0;  // Stores encoder position from last index pulse
 void indexISR() {
     long currentTime = millis();  // Get current time in milliseconds
     long newPosition = myEnc.read();  // Read current encoder position
-    int positionChange = 0  // initalize variable for change
+    int positionChange = 0;  // initalize variable for change
   
     // Determine rotation direction
     if (newPosition > lastPosition) {
         direction = 1;  // Clockwise
-    } else if (newPosition < lastPosition) {
+    } if (newPosition < lastPosition) {
         direction = -1; // Counterclockwise
     }
 
