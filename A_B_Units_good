@@ -1,0 +1,63 @@
+#include <Encoder.h>
+
+#define ENCODER_A 2  // Quadrature signal A (Interrupt pin)
+#define ENCODER_B 4  // Quadrature signal B (Regular pin)
+#define INDEX_PIN 3  // Index pulse (Z) (Interrupt pin)
+
+volatile long lastIndexTime = 0;  // Timestamp of last index pulse
+volatile float vel = 0.0;         // Revolutions per second
+volatile int direction = 1;       // 1 = CW, -1 = CCW
+
+Encoder myEnc(ENCODER_A, ENCODER_B);
+long lastPosition = 0;  // Stores encoder position from last index pulse
+
+void indexISR() {
+    long currentTime = millis();  // Get current time in milliseconds
+    long newPosition = myEnc.read();  // Read current encoder position
+    int positionChange = 0;  // initalize variable for change
+  
+    positionChange = (newPosition - lastPosition)/158.507;   // its 158.607units/cm, this is converted to cm
+
+
+    // Determine rotation direction
+    if (newPosition > lastPosition) {
+        direction = 1;  // Clockwise
+    } if (newPosition < lastPosition) {
+        direction = -1; // Counterclockwise
+    }
+
+    // Calculate RPS only if we have a previous index timestamp
+    if (lastIndexTime >= 0) {  
+        long elapsedTime = (currentTime - lastIndexTime)/1000;  // Time since last index pulse in seconds
+        vel = (positionChange / elapsedTime) * direction;  // Convert to cm/s, sign indicates direction (one rotation is about 10125 units)
+    }
+    
+    // Update last index pulse time and position
+    lastIndexTime = currentTime;
+    lastPosition = newPosition;
+}
+
+void setup() {
+    Serial.begin(9600);
+
+    pinMode(INDEX_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(INDEX_PIN), indexISR, RISING);
+}
+
+void loop() {
+    long position = myEnc.read();  // Read encoder position
+
+    Serial.print("Position (cm): ");
+    Serial.print(position/158.607);
+    Serial.print("\t Velocity (cm/s): ");
+    Serial.print(vel);
+    Serial.print("\t Direction: ");
+
+    if (direction == 1) {  // Show Direction
+      Serial.println("CW");
+    } else {
+      Serial.println("CCW");
+    }
+
+    delay(100);  // Update rate
+}
