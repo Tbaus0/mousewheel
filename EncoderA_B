@@ -1,8 +1,8 @@
 #include <Encoder.h>
 
 #define ENCODER_A 2  // Quadrature signal A (Interrupt pin)
-#define ENCODER_B 3  // Quadrature signal B
-#define INDEX_PIN 4  // Index pulse (Z) (Interrupt pin)
+#define ENCODER_B 4  // Quadrature signal B (Regular pin)
+#define INDEX_PIN 3  // Index pulse (Z) (Interrupt pin)
 
 volatile long lastIndexTime = 0;  // Timestamp of last index pulse
 volatile float rps = 0.0;         // Revolutions per second
@@ -14,7 +14,8 @@ long lastPosition = 0;  // Stores encoder position from last index pulse
 void indexISR() {
     long currentTime = millis();  // Get current time in milliseconds
     long newPosition = myEnc.read();  // Read current encoder position
-
+    int positionChange = 0  // initalize variable for change
+  
     // Determine rotation direction
     if (newPosition > lastPosition) {
         direction = 1;  // Clockwise
@@ -34,7 +35,7 @@ void indexISR() {
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(9600);
 
     pinMode(INDEX_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(INDEX_PIN), indexISR, RISING);
@@ -48,7 +49,12 @@ void loop() {
     Serial.print("\t RPS: ");
     Serial.print(rps);
     Serial.print("\t Direction: ");
-    Serial.println((direction == 1) ? "CW" : "CCW");  // Show direction
+
+    if (direction == 1) {  // Show Direction
+      Serial.println("CW");
+    } else {
+      Serial.println("CCW");
+    }
 
     delay(100);  // Update rate
 }
