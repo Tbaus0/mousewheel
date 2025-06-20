@@ -5,10 +5,11 @@
 #define INDEX_PIN 3  // Index pulse (Z) (Interrupt pin)
 
 volatile long lastIndexTime = 0;  // Timestamp of last index pulse
-volatile float vel = 0.0;         // Revolutions per second
 volatile int direction = 1;       // 1 = CW, -1 = CCW
-volatile int oldPosition = 0;
-const int pause = 100;        //miliseconds of pause per loop
+long newPosition, oldPosition = 0;
+float vel = 0;                    
+const int pause = 100;            //loop pause time
+
 
 
 Encoder myEnc(ENCODER_A, ENCODER_B);
