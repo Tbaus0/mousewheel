@@ -3,80 +3,45 @@
 #define ENCODER_A 2  // Quadrature signal A (Interrupt pin)
 #define ENCODER_B 4  // Quadrature signal B (Regular pin)
 #define INDEX_PIN 3  // Index pulse (Z) (Interrupt pin)
-#define TTL_OUT_PIN 5     // TTL pulse output pin
 
 volatile long lastIndexTime = 0;  // Timestamp of last index pulse
-volatile float rps = 0.0;         // Revolutions per second
+volatile float vel = 0.0;         // Revolutions per second
 volatile int direction = 1;       // 1 = CW, -1 = CCW
+volatile int oldPosition = 0;
+const int pause = 100;        //miliseconds of pause per loop
 
-unsigned long lastPulseTime = 0;
-const unsigned long inactivityTimeout = 1000; // 1 second timeout for stopping
 
 Encoder myEnc(ENCODER_A, ENCODER_B);
 long lastPosition = 0;  // Stores encoder position from last index pulse
 
-void encoderISR() {
-    if (digitalRead(ENCODER_A) == digitalRead(ENCODER_B)) {
-        position++;  // Clockwise
-    } else {
-        position--;  // Counterclockwise
-    }
-}
-
 void indexISR() {
-    long currentTime = millis();  // Get current time in milliseconds
-    long newPosition = myEnc.read();  // Read current encoder position
-    int positionChange = 0;  // initalize variable for position change
-  
-    // Determine rotation direction
-    if (newPosition > lastPosition) {
-        direction = 1;  // Clockwise
-    } if (newPosition < lastPosition) {
-        direction = -1; // Counterclockwise
-    }
-
-    // Calculate RPS only if we have a previous index timestamp
-    if (lastIndexTime > 0) {  
-        long elapsedTime = currentTime - lastIndexTime;  // Time since last index pulse
-        rps = (1000.0 / elapsedTime) * direction;  // Convert to RPS, sign indicates direction
-    }
-    // Output TTL pulse
-    digitalWrite(TTL_OUT_PIN, HIGH);
-    lastPulseTime = currentTime;
-    
-    
-    // Update last index pulse time and position
-    lastIndexTime = currentTime;
-    lastPosition = newPosition;
+  // example: track revolutions-per-second on the INDEX_PIN
+  unsigned long now = millis();
+  unsigned long dt  = now - lastIndexTime;  
+  if (lastIndexTime > 0 && dt > 0) {
+    // one index pulse per rev → direction×(1000 ms/s)/dt rps
+    vel       = direction * (1000.0 / dt);
+    lastIndexTime = now;
+  }
+  // optionally read the encoder to set direction:
+  direction = (myEnc.read() - oldPosition > 0) ? 1 : -1;
 }
+
 
 void setup() {
     Serial.begin(9600);
 
-    pinMode(ENCODER_A, INPUT_PULLUP);
-    pinMode(ENCODER_B, INPUT_PULLUP);
     pinMode(INDEX_PIN, INPUT_PULLUP);
-    pinMode(TTL_OUT_PIN, OUTPUT);
-    digitalWrite(TTL_OUT_PIN, LOW);  // Initialize LOW
-
-    attachInterrupt(digitalPinToInterrupt(ENCODER_A), encoderISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(INDEX_PIN), indexISR, RISING);
 }
 
 void loop() {
-    
-    // Check if wheel has stopped (no pulse in last 1000 ms)
-    if (millis() - lastPulseTime > inactivityTimeout) {
-        digitalWrite(TTL_OUT_PIN, LOW);
-        rps = 0;  // Reset speed reading if needed
-    }
+    long newPosition = myEnc.read();  // Read encoder position
 
-    long position = myEnc.read();  // Read encoder position
-
-    Serial.print("Position: ");
-    Serial.print(position);
-    Serial.print("\t RPS: ");
-    Serial.print(rps);
+    Serial.print("Position (cm): ");
+    Serial.print(newPosition/158.607);
+    Serial.print("\t Velocity (cm/s): ");
+    Serial.print(vel);
     Serial.print("\t Direction: ");
 
     if (direction == 1) {  // Show Direction
@@ -85,5 +50,8 @@ void loop() {
       Serial.println("CCW");
     }
 
-    delay(100);  // Update rate
+    vel = (newPosition - oldPosition) * 1000.0 / pause;    //change in position over the delay period
+    oldPosition = newPosition;
+
+    delay(pause);  // Update rate
 }
