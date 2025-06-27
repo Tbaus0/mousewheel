@@ -1,0 +1,7 @@
+0-50 cm/sec
+
+0-7,930 bit range  (mouse walk range guess)
+
+7930 / 31.1 = 255
+
+0 - 255
