@@ -7,9 +7,10 @@
 volatile long lastIndexTime = 0;  // Timestamp of last index pulse
 volatile int direction = 1;       // 1 = CW, -1 = CCW
 long newPosition, oldPosition = 0;
-float vel = 0;                    
+float vel = 0;
+long vel_bit = 0;                    
 const int pause = 100;            //loop pause time
-
+int pwmPin = 9; //setting the PWM pin to 9
 
 
 Encoder myEnc(ENCODER_A, ENCODER_B);
@@ -26,6 +27,8 @@ void setup() {
 
     pinMode(INDEX_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(INDEX_PIN), indexISR, RISING);
+
+    pinMode(pwmPin, OUTPUT);
 }
 
 void loop() {
@@ -45,8 +48,11 @@ void loop() {
       Serial.println("Stopped");
     }
 
-    vel = (newPosition - oldPosition)/158.607 * 1000.0 / pause;    //change in position over the delay period
+    vel_bit = (newPosition - oldPosition) * 1000.0 / pause;    //change in position over the delay period
+    vel = vel_bit / 158.607;
     oldPosition = newPosition;
+
+    analogWrite(pwmPin, HIGH); // Output velocity in bits (range: 0–255) see github note for math
 
     delay(pause);  // Update rate
 }
