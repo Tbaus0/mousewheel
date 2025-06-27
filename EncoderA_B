@@ -10,7 +10,7 @@ long newPosition, oldPosition = 0;
 float vel = 0;
 long vel_bit = 0;                    
 const int pause = 100;            //loop pause time
-int pwmPin = 9; //setting the PWM pin to 9
+int pwmPin = 10; //setting the PWM pin to 10
 
 
 Encoder myEnc(ENCODER_A, ENCODER_B);
@@ -52,7 +52,7 @@ void loop() {
     vel = vel_bit / 158.607;
     oldPosition = newPosition;
 
-    analogWrite(pwmPin, HIGH); // Output velocity in bits (range: 0–255) see github note for math
+    analogWrite(pwmPin, constrain(vel_bit / 31.1, 0, 255)); // Output velocity in bits (range: 0–255) see github note for math
 
     delay(pause);  // Update rate
 }
