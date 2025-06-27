@@ -1,0 +1,73 @@
+#define ENCODER_A 2       // Quadrature signal A (interrupt)
+#define ENCODER_B 4       // Quadrature signal B (regular input)
+#define INDEX_PIN 3       // Index pulse (interrupt)
+#define TTL_OUT_PIN 5     // TTL pulse output pin
+
+volatile long position = 0;
+volatile long lastIndexTime = 0;
+volatile float rps = 0.0;
+volatile int direction = 1;
+
+unsigned long lastPulseTime = 0;
+const unsigned long inactivityTimeout = 1000; // 1 second timeout for stopping
+
+void encoderISR() {
+    if (digitalRead(ENCODER_A) == digitalRead(ENCODER_B)) {
+        position++;  // Clockwise
+    } else {
+        position--;  // Counterclockwise
+    }
+}
+
+void indexISR() {
+    long currentTime = millis();
+
+    static long lastPosition = 0;
+    if (position > lastPosition) {
+        direction = 1;
+    } else if (position < lastPosition) {
+        direction = -1;
+    }
+
+    if (lastIndexTime > 0) {
+        long elapsedTime = currentTime - lastIndexTime;
+        rps = (1000.0 / elapsedTime) * direction;
+    }
+
+    lastIndexTime = currentTime;
+    lastPosition = position;
+
+    // Output TTL pulse
+    digitalWrite(TTL_OUT_PIN, HIGH);
+    lastPulseTime = currentTime;
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    pinMode(ENCODER_A, INPUT_PULLUP);
+    pinMode(ENCODER_B, INPUT_PULLUP);
+    pinMode(INDEX_PIN, INPUT_PULLUP);
+    pinMode(TTL_OUT_PIN, OUTPUT);
+    digitalWrite(TTL_OUT_PIN, LOW);  // Initialize LOW
+
+    attachInterrupt(digitalPinToInterrupt(ENCODER_A), encoderISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(INDEX_PIN), indexISR, RISING);
+}
+
+void loop() {
+    // Check if wheel has stopped (no pulse in last 1000 ms)
+    if (millis() - lastPulseTime > inactivityTimeout) {
+        digitalWrite(TTL_OUT_PIN, LOW);
+        rps = 0;  // Reset speed reading if needed
+    }
+
+    Serial.print("Position: ");
+    Serial.print(position);
+    Serial.print("\t RPS: ");
+    Serial.print(rps);
+    Serial.print("\t Direction: ");
+    Serial.println((direction == 1) ? "CW" : "CCW");
+
+    delay(100);
+}
