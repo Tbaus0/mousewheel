@@ -9,7 +9,7 @@ volatile int direction = 1;       // 1 = CW, -1 = CCW
 long newPosition, oldPosition = 0;
 float vel = 0;
 long vel_bit = 0;                    
-const int pause = 100;            //loop pause time
+const int pause = 100;            //loop pause time in miliseconds
 int pwmPin = 10; //setting the PWM pin to 10
 
 
