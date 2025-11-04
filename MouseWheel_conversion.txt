@@ -1,7 +1,4 @@
-0-50 cm/sec
+wheel_diameter = 8 1/16in = 20.479cm  #measured
+wheel_radius = 10.240cm
+wheel_circ = 2*pi(3.1415)*10.240cm = 64.338 cm
 
-0-7,930 bit range  (mouse walk range guess)
-
-7930 / 31.1 = 255
-
-0 - 255
