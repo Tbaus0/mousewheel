@@ -11,6 +11,7 @@ float vel = 0;
 long vel_bit = 0;                    
 const int pause = 100;            //loop pause time in miliseconds
 int pwmPin = 10; //setting the PWM pin to 10
+const float cm_conv= 137.34;    //conversion from Encoder bits to cm, math in github
 
 
 Encoder myEnc(ENCODER_A, ENCODER_B);
@@ -35,7 +36,7 @@ void loop() {
     long newPosition = myEnc.read();  // Read encoder position
 
     Serial.print("Position (cm): ");
-    Serial.print(newPosition/158.607);
+    Serial.print(newPosition/cm_conv);
     Serial.print("\t Velocity (cm/s): ");
     Serial.print(vel);
     Serial.print("\t Direction: ");
@@ -49,7 +50,7 @@ void loop() {
     }
 
     vel_bit = (newPosition - oldPosition) * 1000.0 / pause;    //change in position over the delay period
-    vel = vel_bit / 158.607;
+    vel = vel_bit / cm_conv;
     oldPosition = newPosition;
 
     analogWrite(pwmPin, constrain(vel_bit / 31.1, 0, 255)); // Output velocity in bits (range: 0–255) see github note for math
