@@ -36,7 +36,7 @@ void loop() {
     long newPosition = myEnc.read();  // Read encoder position
 
     Serial.print("Position (cm): ");
-    Serial.print(newPosition/cm_conv);
+    Serial.print(newPosition);
     Serial.print("\t Velocity (cm/s): ");
     Serial.print(vel);
     Serial.print("\t Direction: ");
@@ -53,7 +53,8 @@ void loop() {
     vel = vel_bit / cm_conv;
     oldPosition = newPosition;
 
-    analogWrite(pwmPin, constrain(vel_bit / 31.1, 0, 255)); // Output velocity in bits (range: 0–255) see github note for math
+    int pwmVal = constrain(((vel + 20.0) / 40.0) * 255, 0, 255); // Normalizes vel, then scales to 8 bit
+    analogWrite(pwmPin, pwmVal); 
 
     delay(pause);  // Update rate
 }
