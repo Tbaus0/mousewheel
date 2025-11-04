@@ -2,3 +2,8 @@ wheel_diameter = 8 1/16in = 20.479cm  #measured
 wheel_radius = 10.240cm
 wheel_circ = 2*pi(3.1415)*10.240cm = 64.338 cm
 
+#For Encoder
+158.607
+1 rev = 8836 bits 
+8836 bits = 64.338 cm
+conversion constant = 8836 bits/64.336 cm = 137.34 bits/cm = 
