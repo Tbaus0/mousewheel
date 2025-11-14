@@ -8,3 +8,7 @@ wheel_circ = 2*pi(3.1415)*10.240cm = 64.338 cm
 1 rev = 1000 bits = 64.338 cm
 conversion constant = 8836 bits/64.336 cm = 137.34
 
+#Lynx Limits
+
+Max Recording voltage = +/- 130mV
+max wheel speed = 60 cm/s #random limit
