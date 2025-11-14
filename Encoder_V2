@@ -1,0 +1,136 @@
+/*********************************************************
+   Rotary Encoder → Position (cm), Velocity (cm/s), Direction
+   Wheel circumference = 64.338 cm
+   Encoder = 4096 counts/rev
+
+   Input Pins (your mapping):
+     ENCODER_A = 2   (interrupt)
+     ENCODER_B = 4   (regular pin)
+     INDEX_PIN = 3   (interrupt)
+
+   Output:
+     pwmFwd = 5
+     pwmRev = 6
+
+   Velocity range:
+      -30 cm/s → -0.13 V
+      +30 cm/s → +0.13 V
+**********************************************************/
+
+#include <Encoder.h>
+
+// ------------------- PIN MAPPINGS -------------------
+#define ENCODER_A 2  
+#define ENCODER_B 4  
+#define INDEX_PIN 3  
+
+const int pwmFwd = 5;  
+const int pwmRev = 6;  
+
+// ------------------- CONSTANTS ----------------------
+const long COUNTS_PER_REV = 4096;
+const float CIRCUMFERENCE_CM = 64.338;
+
+const float CM_PER_COUNT = CIRCUMFERENCE_CM / COUNTS_PER_REV;   // ≈ 0.01572 cm/count
+
+// Sampling
+unsigned long lastSample = 0;
+const unsigned long SAMPLE_INTERVAL_MS = 100; // 10 Hz sampling
+
+// ------------------- ENCODER OBJECT -----------------
+Encoder wheelEnc(ENCODER_A, ENCODER_B);
+
+// Position accumulator
+volatile long indexOffsetCount = 0;
+
+// -----------------------------------------------------
+//        OPTIONAL: INDEX PULSE ZEROING (Z-channel)
+// -----------------------------------------------------
+void IRAM_ATTR indexISR() {
+    // Reset encoder count on index pulse if you want zeroing
+    // wheelEnc.write(0);  
+    // indexOffsetCount = 0;
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    pinMode(INDEX_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(INDEX_PIN), indexISR, RISING);
+
+    pinMode(pwmFwd, OUTPUT);
+    pinMode(pwmRev, OUTPUT);
+    analogWrite(pwmFwd, 0);
+    analogWrite(pwmRev, 0);
+}
+
+// ---------------------------------------------------------
+// MAP VELOCITY (–30 → +30 cm/s) INTO ±0.13 V USING TWO PWMs
+// ---------------------------------------------------------
+void outputVoltage(float vel_cms) {
+    if (vel_cms > 30)  vel_cms = 30;
+    if (vel_cms < -30) vel_cms = -30;
+
+    float mag = abs(vel_cms);
+
+    // Convert magnitude to 0 → 7 PWM range
+    float pwmFloat = (mag / 30.0) * (0.13 / 5.0) * 255.0;
+    int pwmVal = (int)round(pwmFloat);  // 0–7
+
+    if (vel_cms > 0) {
+        analogWrite(pwmFwd, pwmVal);
+        analogWrite(pwmRev, 0);
+    }
+    else if (vel_cms < 0) {
+        analogWrite(pwmFwd, 0);
+        analogWrite(pwmRev, pwmVal);
+    }
+    else {
+        analogWrite(pwmFwd, 0);
+        analogWrite(pwmRev, 0);
+    }
+}
+
+// ---------------------------------------------------------
+// LOOP
+// ---------------------------------------------------------
+void loop() {
+    unsigned long now = millis();
+
+    if (now - lastSample >= SAMPLE_INTERVAL_MS) {
+        lastSample = now;
+
+        long countNow = wheelEnc.read();
+
+        static long lastCount = 0;
+        long delta = countNow - lastCount;
+        lastCount = countNow;
+
+        // Position tracking
+        float position_cm = countNow * CM_PER_COUNT;
+
+        // Velocity (cm/s)
+        float dt = SAMPLE_INTERVAL_MS / 1000.0;
+        float vel_cms = (delta * CM_PER_COUNT) / dt;
+
+        // Direction
+        String direction = "STOP";
+        if (vel_cms > 0.01)  direction = "CW";
+        else if (vel_cms < -0.01) direction = "CCW";
+
+        // Output voltage based on velocity
+        outputVoltage(vel_cms);
+
+        // --------------- SERIAL OUTPUT ---------------
+        Serial.print("Pos: ");
+        Serial.print(position_cm, 3);
+        Serial.print(" cm | Vel: ");
+        Serial.print(vel_cms, 3);
+        Serial.print(" cm/s | Dir: ");
+        Serial.print(direction);
+        Serial.print(" | PWM(Fwd/Rev): ");
+        Serial.print(analogRead(pwmFwd));
+        Serial.print("/");
+        Serial.println(analogRead(pwmRev));
+    }
+}
