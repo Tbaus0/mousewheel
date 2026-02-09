@@ -1,0 +1,19 @@
+const int pwmPin = 10;
+
+void setup() {
+  pinMode(pwmPin, OUTPUT);
+}
+
+void loop() {
+  // Ramp up from 0 to 255
+  for (int val = 0; val <= 255; val++) {
+    analogWrite(pwmPin, val);
+    delay(5);  // adjust speed of sweep
+  }
+
+  // Ramp back down from 255 to 0
+  for (int val = 255; val >= 0; val--) {
+    analogWrite(pwmPin, val);
+    delay(5);
+  }
+}
