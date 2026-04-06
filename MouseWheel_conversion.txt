@@ -11,6 +11,7 @@ conversion constant = 8836 bits/64.336 cm = 137.34
 #Lynx Limits
 
 Max Recording voltage = +/- 130mV
-max wheel speed = 30 cm/s #random limit
+max wheel speed = 20 cm/s #random limit
 
+#Voltage Divider
 
