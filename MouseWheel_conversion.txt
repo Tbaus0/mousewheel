@@ -14,4 +14,6 @@ Max Recording voltage = +/- 130mV
 max wheel speed = 20 cm/s #random limit
 
 #Voltage Divider
-
+conversion factor = 37.7
+R1=36.7k ohm
+R2=1k ohm
