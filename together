@@ -1,0 +1,88 @@
+#include <Encoder.h>
+#include <LiquidCrystal.h>
+
+// -------------------------
+// YOUR PIN DEFINITIONS
+// -------------------------
+#define ENCODER_A 10
+#define ENCODER_B 11
+#define INDEX_PIN 12
+
+volatile long lastIndexTime = 0;
+volatile int direction = 1;
+long newPosition, oldPosition = 0;
+float vel = 0;
+long vel_bit = 0;
+const int pause = 100;
+const float cm_conv = 137.34;
+
+Encoder myEnc(ENCODER_A, ENCODER_B);
+long lastPosition = 0;
+
+// -------------------------
+// LCD PINOUT (parallel mode)
+// Using the same mapping we've been using:
+// RS = 8, EN = 9, D4 = 4, D5 = 5, D6 = 6, D7 = 7
+// -------------------------
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+void indexISR() {
+  unsigned long now = millis();
+  unsigned long dt  = now - lastIndexTime;
+}
+
+void setup() {
+    Serial.begin(9600);
+
+    pinMode(INDEX_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(INDEX_PIN), indexISR, RISING);
+
+    
+
+    // -------------------------
+    // LCD INIT
+    // -------------------------
+    lcd.begin(16, 2);
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Encoder Ready");
+}
+
+void loop() {
+    long newPosition = myEnc.read();
+
+    Serial.print("Position (cm): ");
+    Serial.print(newPosition);
+    Serial.print("\t Velocity (cm/s): ");
+    Serial.print(vel);
+    Serial.print("\t Direction: ");
+
+    if (vel > 0) {
+      Serial.println("CW");
+    }
+    if (vel < 0){
+      Serial.println("CCW");
+    }
+    if (vel == 0){
+      Serial.println("Stopped");
+    }
+
+    vel_bit = (newPosition - oldPosition) * 1000.0 / pause;
+    vel = vel_bit / cm_conv;
+    oldPosition = newPosition;
+
+    // -------------------------
+    // LCD OUTPUT
+    // -------------------------
+    lcd.setCursor(0,0);
+    lcd.print("Vel:");
+    lcd.print(vel, 2);      // cm/s with 2 decimals
+    lcd.print(" cm/s   ");  // spaces clear leftovers
+
+    lcd.setCursor(0,1);
+    lcd.print("Pos:");
+    lcd.print(newPosition);
+    lcd.print("      ");    // clear trailing chars
+
+    delay(pause);
+}
