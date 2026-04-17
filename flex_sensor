@@ -1,0 +1,96 @@
+#include <LiquidCrystal.h>
+
+// LCD pins (your wiring)
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+const int PIN_FLEX = A1;
+
+// Filters
+float flexFast  = 0;   // fast EMA (shape)
+float flexBase  = 0;   // slow EMA (baseline)
+
+// Tuning
+const float alphaFast = 0.3;    // fast smoothing
+const float alphaBase = 0.01;   // slow baseline tracking
+
+// Peak detection (negative-going)
+const float DELTA_THRESH = -1.0;        // threshold for inhale dip
+const unsigned long MIN_IBI_MS   = 150; // minimum interval between breaths
+const unsigned long BR_TIMEOUT_MS = 3000; // no breaths → BR = 0
+const unsigned long BR_UPDATE_MS  = 500;  // LCD update rate
+
+bool belowThresh = false;
+unsigned long lastBreathTime = 0;
+unsigned long prevBreathTime = 0;
+float breathsPerMin = 0;
+
+unsigned long lastBrDisplayUpdate = 0;
+
+void setup() {
+  Serial.begin(115200);
+  lcd.begin(16, 2);
+  lcd.clear();
+}
+
+void loop() {
+  // --- Read flex sensor ---
+  int flex = analogRead(PIN_FLEX);
+
+  // --- Filtering ---
+  flexFast = flexFast + alphaFast * (flex - flexFast);
+  flexBase = flexBase + alphaBase * (flex - flexBase);
+
+  float flexDelta = flexFast - flexBase;  // baseline-removed signal
+
+  unsigned long nowMs = millis();
+
+  // --- NEGATIVE peak detection ---
+  if (!belowThresh && flexDelta < DELTA_THRESH && (nowMs - lastBreathTime) > MIN_IBI_MS) {
+    // Breath detected
+    prevBreathTime = lastBreathTime;
+    lastBreathTime = nowMs;
+    belowThresh = true;
+
+    if (prevBreathTime > 0) {
+      float ibiSec = (lastBreathTime - prevBreathTime) / 1000.0;
+      breathsPerMin = 60.0 / ibiSec;
+    }
+  }
+
+  // Reset when signal rises back above baseline
+  if (belowThresh && flexDelta > 0) {
+    belowThresh = false;
+  }
+
+  // --- Auto-zero if no breaths ---
+  if ((nowMs - lastBreathTime) > BR_TIMEOUT_MS) {
+    breathsPerMin = 0;
+  }
+
+  // --- Serial Plotter output ---
+  // raw, fast, base, delta
+  Serial.print(flex);        Serial.print(",");
+  Serial.print(flexFast);    Serial.print(",");
+  Serial.print(flexBase);    Serial.print(",");
+  Serial.println(flexDelta);
+
+  // --- LCD output ---
+  lcd.setCursor(0, 0);
+  lcd.print("F:");
+  lcd.print((int)flexFast);
+  lcd.print(" d:");
+  lcd.print((int)flexDelta);
+  lcd.print("   ");
+
+  // Rate-limited BR update
+  if (nowMs - lastBrDisplayUpdate > BR_UPDATE_MS) {
+    lastBrDisplayUpdate = nowMs;
+
+    lcd.setCursor(0, 1);
+    lcd.print("BR:");
+    lcd.print((int)breathsPerMin);
+    lcd.print("/m   ");
+  }
+
+  delay(10); // ~100 Hz loop
+}
