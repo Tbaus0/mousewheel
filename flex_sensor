@@ -7,21 +7,23 @@ const int PIN_FLEX = A1;
 
 // Filters
 float flexFast  = 0;   // fast EMA (shape)
-float flexBase  = 845;   // slow EMA (baseline)
+float flexBase  = 846;   // slow EMA (baseline)
 
 // Tuning
-const float alphaFast = 0.35;    // fast smoothing
-const float alphaBase = 0.01;   // slow baseline tracking
+const float alphaFast = 0.28;    // fast smoothing
+const float alphaBase = 0.015;   // slow baseline tracking
+const float BaseOffset = 1.0;   // Bump up the offset so dips are easy to detect
 
 // Peak detection (negative-going)
-const float DELTA_THRESH = -0.9;        // threshold for inhale dip
-const unsigned long MIN_IBI_MS   = 150; // minimum interval between breaths
+const float DELTA_THRESH = -0.7;        // threshold for inhale dip
+const unsigned long MIN_IBI_MS   = 120; // minimum interval between breaths
 const unsigned long BR_TIMEOUT_MS = 3000; // no breaths → BR = 0
 const unsigned long BR_UPDATE_MS  = 500;  // LCD update rate
 
 bool belowThresh = false;
 unsigned long lastBreathTime = 0;
 unsigned long prevBreathTime = 0;
+unsigned long PrevPrevBreathTime = 0;
 float breathsPerMin = 0;
 
 unsigned long lastBrDisplayUpdate = 0;
@@ -38,7 +40,7 @@ void loop() {
 
   // --- Filtering ---
   flexFast = flexFast + alphaFast * (flex - flexFast);
-  flexBase = flexBase + alphaBase * (flex - flexBase);
+  flexBase = flexBase + alphaBase * ((flex + BaseOffset) - flexBase);
 
   float flexDelta = flexFast - flexBase;  // baseline-removed signal
 
@@ -47,13 +49,18 @@ void loop() {
   // --- NEGATIVE peak detection ---
   if (!belowThresh && flexDelta < DELTA_THRESH && (nowMs - lastBreathTime) > MIN_IBI_MS) {
     // Breath detected
+    PrevPrevBreathTime = prevBreathTime;
     prevBreathTime = lastBreathTime;
     lastBreathTime = nowMs;
     belowThresh = true;
 
+    // Compute BR with last two breath intervals
     if (prevBreathTime > 0) {
-      float ibiSec = (lastBreathTime - prevBreathTime) / 1000.0;
-      breathsPerMin = 60.0 / ibiSec;
+      float ibi1 = (lastBreathTime - prevBreathTime) / 1000.0; //recent IBI
+      float ibi2 = (prevBreathTime - PrevPrevBreathTime) / 1000.0; // Before Recent IBI
+      float ibiAvg = (ibi1 + ibi2) / 2.0;
+      
+      breathsPerMin = 60.0 / ibiAvg;
     }
   }
 
