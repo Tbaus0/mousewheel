@@ -7,14 +7,14 @@ const int PIN_FLEX = A1;
 
 // Filters
 float flexFast  = 0;   // fast EMA (shape)
-float flexBase  = 0;   // slow EMA (baseline)
+float flexBase  = 845;   // slow EMA (baseline)
 
 // Tuning
-const float alphaFast = 0.3;    // fast smoothing
+const float alphaFast = 0.35;    // fast smoothing
 const float alphaBase = 0.01;   // slow baseline tracking
 
 // Peak detection (negative-going)
-const float DELTA_THRESH = -1.0;        // threshold for inhale dip
+const float DELTA_THRESH = -0.9;        // threshold for inhale dip
 const unsigned long MIN_IBI_MS   = 150; // minimum interval between breaths
 const unsigned long BR_TIMEOUT_MS = 3000; // no breaths → BR = 0
 const unsigned long BR_UPDATE_MS  = 500;  // LCD update rate
