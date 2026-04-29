@@ -76,10 +76,15 @@ void loop() {
 
   // --- Serial Plotter output ---
   // raw, fast, base, delta
-  Serial.print(flex);        Serial.print(",");
-  Serial.print(flexFast);    Serial.print(",");
-  Serial.print(flexBase);    Serial.print(",");
-  Serial.println(flexDelta);
+  Serial.print("CSV,");
+  Serial.print(nowMs);        Serial.print(",");
+  Serial.print(flex);         Serial.print(",");
+  Serial.print(flexFast);     Serial.print(",");
+  Serial.print(flexBase);     Serial.print(",");
+  Serial.print(flexDelta);    Serial.print(",");
+  Serial.print(breathsPerMin);Serial.print(",");
+  Serial.println(belowThresh ? 1 : 0);
+
 
   // --- LCD output ---
   lcd.setCursor(0, 0);
