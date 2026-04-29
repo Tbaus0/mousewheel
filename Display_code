@@ -1,0 +1,114 @@
+#include <LiquidCrystal.h>
+
+// LCD pins (your wiring)
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+const int PIN_FLEX = A1;
+
+// Filters
+float flexFast  = 0;   // fast EMA (shape)
+float flexBase  = 0;   // slow EMA (baseline)
+
+// Tuning
+const float alphaFast = 0.3;    // fast smoothing
+const float alphaBase = 0.01;   // slow baseline tracking
+
+// Peak detection (negative-going)
+const float DELTA_THRESH = -0.8;        // threshold for inhale dip
+const unsigned long MIN_IBI_MS   = 150; // minimum interval between breaths
+const unsigned long BR_TIMEOUT_MS = 3000; // no breaths → BR = 0
+const unsigned long BR_UPDATE_MS  = 500;  // LCD update rate
+
+bool belowThresh = false;
+unsigned long lastBreathTime = 0;
+unsigned long prevBreathTime = 0;
+float breathsPerMin = 0;
+
+unsigned long lastBrDisplayUpdate = 0;
+
+// Fake HR, velocity, position
+float fakeHR = 300;
+bool hrUp = true;
+float fakeVel = 0;
+long fakePos = 0;
+
+void setup() {
+  Serial.begin(115200);
+  lcd.begin(16, 2);
+  lcd.clear();
+}
+
+void loop() {
+  // --- Read flex sensor ---
+  int flex = analogRead(PIN_FLEX);
+
+  // --- Filtering ---
+  flexFast = flexFast + alphaFast * (flex - flexFast);
+  flexBase = flexBase + alphaBase * (flex - flexBase);
+
+  float flexDelta = flexFast - flexBase;  // baseline-removed signal
+
+  unsigned long nowMs = millis();
+
+  // --- NEGATIVE peak detection ---
+  if (!belowThresh && flexDelta < DELTA_THRESH && (nowMs - lastBreathTime) > MIN_IBI_MS) {
+    prevBreathTime = lastBreathTime;
+    lastBreathTime = nowMs;
+    belowThresh = true;
+
+    if (prevBreathTime > 0) {
+      float ibiSec = (lastBreathTime - prevBreathTime) / 1000.0;
+      breathsPerMin = 60.0 / ibiSec;
+    }
+  }
+
+  // Reset when signal rises back above baseline
+  if (belowThresh && flexDelta > 0) {
+    belowThresh = false;
+  }
+
+  // --- Auto-zero if no breaths ---
+  if ((nowMs - lastBreathTime) > BR_TIMEOUT_MS) {
+    breathsPerMin = 0;
+  }
+
+  // --- Serial Plotter output ---
+  Serial.print(flex);        Serial.print(",");
+  Serial.print(flexFast);    Serial.print(",");
+  Serial.print(flexBase);    Serial.print(",");
+  Serial.println(flexDelta);
+
+  // ----------------------------------------------------
+  // NEW LCD OUTPUT (ONLY PART YOU ASKED ME TO CHANGE)
+  // ----------------------------------------------------
+
+  // Fake HR oscillation 300–400 bpm
+  if (hrUp) fakeHR += 1.2;
+  else      fakeHR -= 1.2;
+  if (fakeHR >= 400) hrUp = false;
+  if (fakeHR <= 300) hrUp = true;
+
+  // Fake velocity and position
+  fakeVel = (sin(millis() / 800.0) * 20.0) + 20.0;  // 0–40 cm/s
+  fakePos += (long)(fakeVel * 0.1);                // slow drift
+
+  // --- LCD Line 1: HR and Velocity ---
+  lcd.setCursor(0, 0);
+  lcd.print("HR:");
+  lcd.print((int)fakeHR);
+  lcd.print(" V:");
+  lcd.print((int)fakeVel);
+  lcd.print("   ");
+
+  // --- LCD Line 2: Position and RR ---
+  lcd.setCursor(0, 1);
+  lcd.print("P:");
+  lcd.print(fakePos);
+  lcd.print(" RR:");
+  lcd.print((int)breathsPerMin);
+  lcd.print("   ");
+
+  // ----------------------------------------------------
+
+  delay(10); // ~100 Hz loop
+}
