@@ -1,0 +1,99 @@
+// Rodent PPG: 250 Hz sampling, 2–20 Hz band, HR 250–700 bpm
+
+const int PIN_PPG = A0;
+const int PIN_VREF = A1;  // optional
+
+const float FS = 250.0;          // Hz
+const float DT = 1.0 / FS;
+
+// High-pass (fc ≈ 1.0 Hz)
+const float HP_FC = 1.0;
+const float HP_RC = 1.0 / (2.0 * 3.14159 * HP_FC);
+const float HP_ALPHA = HP_RC / (HP_RC + DT);
+
+// Low-pass (fc ≈ 20 Hz)
+const float LP_FC = 20.0;
+const float LP_RC = 1.0 / (2.0 * 3.14159 * LP_FC);
+const float LP_ALPHA = DT / (LP_RC + DT);
+
+float hp_y = 0.0, hp_x_prev = 0.0;
+float lp_y = 0.0;
+
+unsigned long lastSampleMicros = 0;
+const unsigned long SAMPLE_PERIOD_US = 1000000UL / (unsigned long)FS;
+
+// Peak detection
+float thresh = 0.0;
+float noiseFloor = 0.0;
+bool aboveThresh = false;
+unsigned long lastBeatMs = 0;
+const unsigned long MIN_IBI_MS = 60;   // ~1000 bpm max
+const unsigned long MAX_IBI_MS = 600;  // ~100 bpm min (for safety)
+
+const int MAX_BEATS = 10;
+unsigned long ibiBuffer[MAX_BEATS];
+int beatCount = 0;
+
+void setup() {
+  Serial.begin(115200);
+  analogReference(DEFAULT);
+}
+
+void loop() {
+  unsigned long now = micros();
+  if (now - lastSampleMicros < SAMPLE_PERIOD_US) return;
+  lastSampleMicros += SAMPLE_PERIOD_US;
+
+  int raw = analogRead(PIN_PPG);  // 0–1023
+  float v = (float)raw;           // keep in ADC units; no need to scale
+
+  // --- High-pass filter (remove DC / slow drift) ---
+  float hp_y_new = HP_ALPHA * (hp_y + v - hp_x_prev);
+  hp_x_prev = v;
+  hp_y = hp_y_new;
+
+  // --- Low-pass filter (remove >20 Hz noise) ---
+  lp_y = lp_y + LP_ALPHA * (hp_y - lp_y);
+
+  // Update noise floor and threshold slowly
+  noiseFloor = 0.999 * noiseFloor + 0.001 * fabs(lp_y);
+  thresh = noiseFloor * 3.0;  // 3x above noise
+
+  unsigned long nowMs = millis();
+
+  // Peak detection: crossing threshold from below
+  if (!aboveThresh && lp_y > thresh) {
+    aboveThresh = true;
+
+    unsigned long ibi = nowMs - lastBeatMs;
+    if (ibi > MIN_IBI_MS && ibi < MAX_IBI_MS) {
+      lastBeatMs = nowMs;
+      if (beatCount < MAX_BEATS) {
+        ibiBuffer[beatCount++] = ibi;
+      } else {
+        // shift and append
+        for (int i = 1; i < MAX_BEATS; i++) ibiBuffer[i - 1] = ibiBuffer[i];
+        ibiBuffer[MAX_BEATS - 1] = ibi;
+      }
+    }
+  }
+
+  if (aboveThresh && lp_y < thresh * 0.5) {
+    aboveThresh = false;
+  }
+
+  // Compute average HR if we have enough beats
+  float hr = 0.0;
+  if (beatCount >= 3) {
+    unsigned long sumIbi = 0;
+    int n = beatCount;
+    for (int i = 0; i < n; i++) sumIbi += ibiBuffer[i];
+    float meanIbi = (float)sumIbi / (float)n;  // ms
+    hr = 60000.0 / meanIbi;                    // bpm
+  }
+
+  // Stream for Serial Plotter: filtered signal and HR
+  Serial.print(lp_y);   // filtered PPG
+  Serial.print(",");
+  Serial.println(hr);   // bpm (0 if not enough beats yet)
+}
