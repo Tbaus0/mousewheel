@@ -1,0 +1,41 @@
+// Raw + lightly smoothed PPG for offline filtering
+
+const int PIN_PPG = A0;
+
+const float FS = 100.0;
+const float DT = 1.0 / FS;
+
+// Gentle low-pass (fc ~ 20 Hz)
+const float LP_FC = 20.0;
+const float LP_RC = 1.0 / (2.0 * 3.14159 * LP_FC);
+const float LP_ALPHA = DT / (LP_RC + DT);
+
+float lp_y = 0.0;
+bool firstSample = true;
+
+unsigned long lastSampleMicros = 0;
+const unsigned long SAMPLE_PERIOD_US = 1000000UL / (unsigned long)FS;
+
+void setup() {
+  Serial.begin(115200);
+}
+
+void loop() {
+  unsigned long now = micros();
+  if (now - lastSampleMicros < SAMPLE_PERIOD_US) return;
+  lastSampleMicros += SAMPLE_PERIOD_US;
+
+  int raw = analogRead(PIN_PPG);
+
+  if (firstSample) {
+    lp_y = raw;
+    firstSample = false;
+  } else {
+    lp_y = lp_y + LP_ALPHA * ((float)raw - lp_y);
+  }
+
+  // raw, smoothed
+  Serial.print(raw);
+  Serial.print(",");
+  Serial.println(lp_y);
+}
