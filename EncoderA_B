@@ -53,7 +53,7 @@ void loop() {
     vel = vel_bit / cm_conv;
     oldPosition = newPosition;
 
-    int pwmVal = constrain(((vel + 20.0) / 40.0) * 255, 0, 255); // Normalizes vel, then scales to 8 bit
+    int pwmVal = constrain(((vel + 10.0) / 40.0) * 255, 0, 255); // Offsets, Normalizes vel, scale to 8 bit (Theoretical baseline = 33mV, Measured=30.4mV)
     analogWrite(pwmPin, pwmVal); 
 
     delay(pause);  // Update rate
